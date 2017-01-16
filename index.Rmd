@@ -1,0 +1,13 @@
+---
+title:
+author: "afilazzola and cjlortie"
+date: "Dec 2016"
+    
+  
+---
+```{r data & library input}
+library(tidyverse)
+data <-read_csv("data/Ephedra.substrate.csv")
+data
+
+```
