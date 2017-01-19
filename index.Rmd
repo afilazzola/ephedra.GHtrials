@@ -2,8 +2,13 @@
 title:
 author: "afilazzola and cjlortie"
 date: "Dec 2016"
+
     
-  
+---
+    
+Meta-data
+Alex, can you please insert the instructions for how you did the trials here?
+
 ---
 ```{r data & library input}
 library(tidyverse)
