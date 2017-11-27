@@ -21,7 +21,23 @@ Height: length of plant found in each pot (cm).
 ---
 ```{r data & library input}
 library(tidyverse)
-data <-read_csv("data/Ephedra.substrate.csv")
-data
+substrate <-read.csv("data/ephedra.substrate.csv")
+recruit <-read.csv("data/ephedra.recruitment.csv")
+landscape <-read.csv("data/ephedra.landscape.csv")
+
+## functions
+## inverse hyperbolic sine transformation 
+ihs <- function(x) {
+    y <- log(x + sqrt(x ^ 2 + 1))
+    return(y)
+}
 
 ```
+
+
+### Ephedra recruitment at landscape
+```{r}
+
+plot(landscape$RDM.2013, landscape$Shrub.density)
+
+m1 <- lm(ihs(RDM.2013)~ Shrub.density* Volume,data= landscape)
