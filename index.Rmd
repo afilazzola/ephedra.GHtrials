@@ -1,43 +1,149 @@
 ---
-title:
-author: "afilazzola and cjlortie"
-date: "Dec 2016"
-
-    
+title: 'Cost of facilitation: invasive grasses limit recruitment of benefactor shrubs.'
+author: "afilazzola & cjlortie"
+date: "September 2017"
+output:
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+  
 ---
-    
-Meta-data
-In a greenhouse on November 20th 2014, five Ephedra seeds were placed in 160 four inch pots mixed with different ratios of potting soil and sand. On January 9th 2015 all the emerged plants were removed leaving behind only one plant that was surveyed for height and survival until February 25th, 2015. 
 
-Micro:	Place open in full sun or under a shade structure.
-Sand:	Percentage of soil composition that is sand
-Rep:	Replicate
-Cenus:	survey event
-Date:	day that the survey was begun
-Emergence:	number of plants that emerged from the seeds. 
-Survival:	number of plants that have survived
-Height: length of plant found in each pot (cm).
+![](ephedra.jpg)
+
+[ecoblender](http://ecoblender.org)
+
+[alex.filazzola](http://www.filazzola.info)
+
+#### Abstract
+
+Shrubs facilitate the abundance and productive of annual plants in desert ecosystems.However, these shrub microhabitats favour plant species with competitive life histories. Ephedra californica is a dominant shrub in the San Joaquin desert that has been identified as a facilitator. Here, we explore the factors that limit the Ephedra californica recruitment into the San Joaquin desert including substrate, water availability, and herbivory. We also explore the role of the invasive grass Bromus madritensis on limiting establishment of E. californica. Vegetation surveys were conducted in the field during 2013 and collected seed was then used to conduct two greenhouse trials. The first explore germination and establishment techniques for E. california and the optimal substrate. The second examined E. californica establishment in present of the invasive B. madritensis responding to different water levels and herbivory. These results can have implications for land managers in the San Joaquin Valley to maintain native shrub biodiversity in the region. 
+
+
 
 ---
-```{r data & library input}
+```{r data & library input, warning=FALSE, message=FALSE}
+
+## load libraries
 library(tidyverse)
+library(OIsurv)
+library(lsmeans)
+
+## load data
 substrate <-read.csv("data/ephedra.substrate.csv")
 recruit <-read.csv("data/ephedra.recruitment.csv")
 landscape <-read.csv("data/ephedra.landscape.csv")
 
-## functions
+##load functions
 ## inverse hyperbolic sine transformation 
 ihs <- function(x) {
     y <- log(x + sqrt(x ^ 2 + 1))
     return(y)
 }
+se <- function(x) sqrt(var(x)/length(x))
 
 ```
 
 
 ### Ephedra recruitment at landscape
 ```{r}
+## compare ephedra size and density across landscape
+landscape[,"area.group"] <- as.numeric(cut(landscape$Log.area,20))
+hist(landscape$area.group)
 
-plot(landscape$RDM.2013, landscape$Shrub.density)
+mean.area <- landscape %>% group_by(area.group) %>%  summarize(rdm=mean(RDM.2013), area=mean(Log.area), density=mean(Shrub.density))
 
-m1 <- lm(ihs(RDM.2013)~ Shrub.density* Volume,data= landscape)
+ggplot(mean.area) + geom_point(aes(x=density, y=area), size=3)+ylab("log (area of shrub)")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~x,aes(x=density, y=area))
+
+m1 <- lm(area~density, data=mean.area)
+summary(m1)
+
+ggplot(mean.area) + geom_point(aes(x=density, y=rdm), size=mean.area$area+1)+ylab("residual dry matter")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~x,aes(x=density, y=rdm))
+
+
+m2 <- lm(rdm~density, data=mean.area)
+summary(m2)
+```
+
+### Ephedra optimal substrate
+```{r, fig.height=8, fig.width=10}
+substrate[,"Sand"] <- as.factor(substrate$Sand)
+substrate[,"census"] <- as.factor(substrate$census)
+
+m1 <- glm(survival ~ Micro * Sand, family="binomial", data=substrate)
+anova(m1, test="Chisq")
+
+m2 <- aov(height ~ Micro * Sand,  data=subset(substrate, census==10))
+summary(m2) ## nothing significant
+
+
+## compare shade on survival of ephedra
+my.surv <- Surv(as.numeric(substrate$census), substrate$survival)
+fit1 <- survfit(my.surv~Micro, data=substrate)
+summary(fit1)
+
+
+par(mar=c(4.5,4.5,.5,.5))
+plot(fit1, col="white", ylim=c(0.2,1), xlim=c(0.9,10.1), ylab="Estimated Survival Function", xlab="Census", cex.lab=1.5, cex.axis=1.3)
+lines(1:10,summary(fit1)[[10]][1:10], col="#E69F00", lty=2) ## upper
+lines(1:10,summary(fit1)[[6]][1:10], col="#E69F00", lwd=2) ## value sun
+lines(1:10,summary(fit1)[[11]][1:10], col="#E69F00", lty=2) ## lower
+lines(1:10,summary(fit1)[[10]][11:20], col="#56B4E9", lty=2) ## upper
+lines(1:10,summary(fit1)[[6]][11:20], col="#56B4E9", lwd=2) ## value shade
+lines(1:10,summary(fit1)[[11]][11:20], col="#56B4E9", lty=2) ## lower
+legend(1.8, 0.35, c("Sun","Shade"), lty=1, lwd=3, col=c("#E69F00","#56B4E9"), cex=1.5)
+
+coxph.fit <- coxph(my.surv ~ Micro, method="breslow", data=substrate)
+coxph.fit 
+
+
+## compare sand on survival of ephedra
+my.surv <- Surv(as.numeric(substrate$census), substrate$survival)
+fit2 <- survfit(my.surv~Sand, data=substrate)
+summary(fit2)
+
+
+test <- substrate %>% group_by(census,Sand) %>%  summarize(count=sum(survival),avg=mean(survival))
+test <- data.frame(test)
+
+par(mar=c(4.5,4.5,.5,.5))
+plot(fit2, col="white", ylim=c(0.2,1), xlim=c(0.9,10.1), ylab="Estimated Survival Function", xlab="Census", cex.lab=1.5, cex.axis=1.3)
+lines(1:10,summary(fit2)[[10]][1:10], col="#E69F00", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][1:10], col="#E69F00", lwd=2) ## value sand 0
+lines(1:10,summary(fit2)[[11]][1:10], col="#E69F00", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][11:20], col="#56B4E9", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][11:20], col="#56B4E9", lwd=2) ## value sand 25
+lines(1:10,summary(fit2)[[11]][11:20], col="#56B4E9", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][21:30], col="#009E73", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][21:30], col="#009E73", lwd=2) ## value sand 50
+lines(1:10,summary(fit2)[[11]][21:30], col="#009E73", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][31:40], col="#CC79A7", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][31:40], col="#CC79A7", lwd=2) ## value sand 75
+lines(1:10,summary(fit2)[[11]][31:40], col="#CC79A7", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][41:50], col="#D55E00", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][41:50], col="#D55E00", lwd=2) ## value sand 100
+lines(1:10,summary(fit2)[[11]][41:50], col="#D55E00", lty=2) ## lower
+legend(1.7, 0.44, c("0%","25%","50%","75%","100%"), lty=1, lwd=3, col=c("#E69F00","#56B4E9","#009E73","#CC79A7","#D55E00"), cex=1.2, title="Sand")
+
+coxph.fit <- coxph(my.surv ~ Sand, method="breslow", data=substrate)
+coxph.fit 
+
+## raw number of germinants end trials
+
+end <- subset(substrate, census==10)
+
+m1 <- glm(survival~ Sand* Micro, data=end, family="binomial")
+anova(m1, test="Chisq")
+
+lsmeans(m1, pairwise~Sand)
+
+end.means <- end %>% group_by(Sand) %>% summarize(eph=mean(survival), eph.se=se(survival))
+end.means <- data.frame(end.means)
+
+end.means[,"lower"] <- end.means[,"eph"]-end.means[,"eph.se"]
+end.means[,"upper"] <- end.means[,"eph"]+end.means[,"eph.se"]
+
+ggplot(end.means, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") 
