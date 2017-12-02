@@ -42,7 +42,7 @@ ihs <- function(x) {
     y <- log(x + sqrt(x ^ 2 + 1))
     return(y)
 }
-se <- function(x) sqrt(var(x)/length(x))
+se <- function(x, ...) sqrt(var(x)/length(x))
 
 ```
 
@@ -139,6 +139,7 @@ anova(m1, test="Chisq")
 
 lsmeans(m1, pairwise~Sand)
 
+## survival
 end.means <- end %>% group_by(Sand) %>% summarize(eph=mean(survival), eph.se=se(survival))
 end.means <- data.frame(end.means)
 
@@ -146,4 +147,30 @@ end.means[,"lower"] <- end.means[,"eph"]-end.means[,"eph.se"]
 end.means[,"upper"] <- end.means[,"eph"]+end.means[,"eph.se"]
 
 ggplot(end.means, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") 
+
+
+## height
+
+end.means <- end %>% group_by(Sand) %>% summarize(eph=mean(height, na.rm=T), eph.se=se(height, na.rm=T))
+end.means <- data.frame(end.means)
+
+end.means[,"lower"] <- end.means[,"eph"]-end.means[,"eph.se"]
+end.means[,"upper"] <- end.means[,"eph"]+end.means[,"eph.se"]
+
+ggplot(end.means, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") 
+
+
+## most germinants
+maximum.germ <- substrate %>% group_by(Micro, Sand, Rep) %>% summarize(eph.max=max(survival))
+
+max.eph <- maximum.germ %>% group_by(Sand) %>% summarize(eph=mean(eph.max,na.rm=T),eph.se=se(eph.max, na.rm=T)) 
+
+
+max.eph[,"lower"] <- max.eph[,"eph"]-max.eph[,"eph.se"]
+max.eph[,"upper"] <- max.eph[,"eph"]+max.eph[,"eph.se"]
+
+
+ggplot(max.eph, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9") +
   geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") 
