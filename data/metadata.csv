@@ -10,7 +10,7 @@ ephedra.landscape,surveys of ephedra and brome at Panoche Hills in 2013,Canopy,e
 ephedra.landscape,surveys of ephedra and brome at Panoche Hills in 2013,RDM.2013,interprolated residual dry matter using Krigged values of 1000 rdm samples on the landscape. See Filazzola et al. 2017 BAAE for details
 ephedra.landscape,surveys of ephedra and brome at Panoche Hills in 2013,Shrub.density,kernel density of shrubs in number per meter squared. See Filazzola et al. 2017 BAAE for details
 ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,ID,unique plot identifier
-ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,Treatment,"treatment applied to samples. Control, water low, water high, clipped once, clipped twice"
+ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,Treatment,"treatment applied to samples. Control, water low, water high, clipped once, clipped twice, partial shade, full shade"
 ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,Lvl,level applied for each of the treatments
 ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,Rep,replicate
 ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,Density,number of brome seeds planted at the beginning with ephedra
@@ -22,6 +22,9 @@ ephedra.recruitment,greenhouse experiment comparing ephedra establishment with b
 ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,ephedra.begin,number of ephedra plants after first census where others were removed
 ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,ephedra.end,final census of ephedra plants per plot
 ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,brome.respawn,number of brome plants that emerged after the initial census. 
+ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,Ephedra.above,"ephedra final above ground biomass, dried weight (g)"
+ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,Ephedra.below,"ephedra final below ground biomass, dried weight (g)"
+ephedra.recruitment,greenhouse experiment comparing ephedra establishment with brome madritensis growth,brome.biomass,"final brome biomass, dried weight (g)"
 ephedra.substrate,greenhouse trials to determine the optimal substrate for ephedra californica to grow in,Micro,whether ephedra was grown in shade or full light
 ephedra.substrate,greenhouse trials to determine the optimal substrate for ephedra californica to grow in,Sand,percentage of potting soil mixture that was sand. All samples contained 10 percent perlite. 
 ephedra.substrate,greenhouse trials to determine the optimal substrate for ephedra californica to grow in,Rep,replicate

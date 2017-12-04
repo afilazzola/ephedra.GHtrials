@@ -42,7 +42,7 @@ ihs <- function(x) {
     y <- log(x + sqrt(x ^ 2 + 1))
     return(y)
 }
-se <- function(x, ...) sqrt(var(x)/length(x))
+se <- function(x, ...) sqrt(var(na.omit(x))/length(na.omit(x)))
 
 ```
 
@@ -72,10 +72,7 @@ summary(m2)
 substrate[,"Sand"] <- as.factor(substrate$Sand)
 substrate[,"census"] <- as.factor(substrate$census)
 
-m1 <- glm(survival ~ Micro * Sand, family="binomial", data=substrate)
-anova(m1, test="Chisq")
-
-m2 <- aov(height ~ Micro * Sand,  data=subset(substrate, census==10))
+m1 <- aov(height ~ Micro * Sand,  data=subset(substrate, census==10))
 summary(m2) ## nothing significant
 
 
@@ -134,10 +131,34 @@ coxph.fit
 
 end <- subset(substrate, census==10)
 
+## compare microsite
+
+end.means <- end %>% group_by(Micro) %>% summarize(eph=mean(survival), eph.se=se(survival), Height=mean(height, na.rm=T), Height.se=se(height)) %>% gather(measure, value, 2:5) %>% separate(measure, c("Eph",".se")) ## calculate metrics and put long format
+end.means[is.na(end.means$.se),3] <- "mean"
+end.means <- end.means %>% spread(.se, value)
+end.means <- data.frame(end.means)
+
+end.means[,"lower"] <- end.means[,"mean"]-end.means[,"se"]
+end.means[,"upper"] <- end.means[,"mean"]+end.means[,"se"]
+
+survival <- subset(end.means, Eph=="eph")
+
+plot1 <- ggplot(survival, aes(x=Micro, y=mean)) + geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Microsite") 
+
+height <- subset(end.means, Eph=="Height")
+
+plot2 <- ggplot(height, aes(x=Micro, y=mean)) + geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average height of Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Microsite") 
+
+require(gridExtra)
+
+grid.arrange(plot1, plot2, ncol=2)
 m1 <- glm(survival~ Sand* Micro, data=end, family="binomial")
 anova(m1, test="Chisq")
 
 lsmeans(m1, pairwise~Sand)
+
 
 ## survival
 end.means <- end %>% group_by(Sand) %>% summarize(eph=mean(survival), eph.se=se(survival))
@@ -166,11 +187,31 @@ ggplot(end.means, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9"
 maximum.germ <- substrate %>% group_by(Micro, Sand, Rep) %>% summarize(eph.max=max(survival))
 
 max.eph <- maximum.germ %>% group_by(Sand) %>% summarize(eph=mean(eph.max,na.rm=T),eph.se=se(eph.max, na.rm=T)) 
-
+max.eph <- data.frame(max.eph)
 
 max.eph[,"lower"] <- max.eph[,"eph"]-max.eph[,"eph.se"]
 max.eph[,"upper"] <- max.eph[,"eph"]+max.eph[,"eph.se"]
 
 
-ggplot(max.eph, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9") +
-  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") 
+ggplot(max.eph, aes(x=Sand, y=eph)) + geom_point(fill="black", size=4) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("total Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") + ylim(0,1) + stat_smooth(method="lm", formula= y~poly(x,2),data=max.eph, aes(x=as.numeric(Sand), y=eph), lwd=1, color="black", lty=2)
+
+
+m1 <- lm(eph~poly(as.numeric(Sand),2), data=max.eph)
+summary(m1)
+```
+
+### Test of limiting factors - water
+```{r}
+recruit[is.na(recruit)] <- 0
+
+m1 <- glm(ephedra.end ~ brome.begin, data=recruit, family=binomial)
+
+## water
+water <- subset(recruit, Treatment == "control" | Treatment=="water")
+
+
+## most germinants
+water.mean <- water %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end),brome=mean(brome.begin))
+
+ggplot(water.mean) + geom_point(aes(x=Density, y=eph, fill=Lvl, color=Lvl))
