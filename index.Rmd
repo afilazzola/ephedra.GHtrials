@@ -32,8 +32,8 @@ library(OIsurv)
 library(lsmeans)
 
 ## load data
-substrate <-read.csv("data/ephedra.substrate.csv")
-recruit <-read.csv("data/ephedra.recruitment.csv")
+substrate <-read.csv("data/Ephedra.substrate.csv")
+recruit <-read.csv("data/Ephedra.recruitment.csv")
 landscape <-read.csv("data/ephedra.landscape.csv")
 
 ##load functions
@@ -201,17 +201,100 @@ m1 <- lm(eph~poly(as.numeric(Sand),2), data=max.eph)
 summary(m1)
 ```
 
-### Test of limiting factors - water
+### Test of limiting factors - brome
 ```{r}
 recruit[is.na(recruit)] <- 0
-
-m1 <- glm(ephedra.end ~ brome.begin, data=recruit, family=binomial)
 
 ## water
 water <- subset(recruit, Treatment == "control" | Treatment=="water")
 
+## germination
+water.germ <- water %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end ),brome=mean(brome.begin))
 
-## most germinants
-water.mean <- water %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end),brome=mean(brome.begin))
+ggplot(water.germ) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("number of Bromus germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
 
-ggplot(water.mean) + geom_point(aes(x=Density, y=eph, fill=Lvl, color=Lvl))
+m1 <- glm(brome.begin~Density *Lvl, data=water, family=poisson)
+anova(m1, test="Chisq")
+
+## biomass
+water.bio <- water %>% group_by(Density, Lvl) %>% summarize(eph=mean(Ephedra.biomass ),brome=mean(brome.biomass))
+
+ggplot(water.bio) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Brome")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+
+## clipping
+clip <- subset(recruit, Treatment == "control" | Treatment=="clipped")
+
+## germination
+clip.germ <- clip %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end ),brome=mean(brome.begin))
+
+ggplot(clip.germ) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("number of Bromus germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## biomass
+clip.bio <- clip %>% group_by(Density, Lvl) %>% summarize(eph=mean(Ephedra.biomass ),brome=mean(brome.biomass))
+
+ggplot(clip.bio) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Brome")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(brome.begin~Density *Lvl, data=clip, family=poisson)
+anova(m1, test="Chisq")
+
+
+## shade
+shade <- subset(recruit, Treatment == "control" | Treatment=="shade")
+
+## germination
+shade.germ <- shade %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end ),brome=mean(brome.begin))
+
+ggplot(shade.germ) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("number of Bromus germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## biomass
+shade.bio <- shade %>% group_by(Density, Lvl) %>% summarize(eph=mean(Ephedra.biomass ),brome=mean(brome.biomass))
+
+ggplot(shade.bio) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Brome")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(brome.begin~Density *Lvl, data=shade, family=poisson)
+anova(m1, test="Chisq")
+
+```
+
+### Test of limiting factors - Ephedra
+```{r}
+## water
+## germination
+
+ggplot(water.germ) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("number of Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(ephedra.end~Density *Lvl, data=water, family=poisson)
+anova(m1, test="Chisq")
+
+## biomass
+
+ggplot(water.bio) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Ephedra")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## clipping
+
+## germination
+
+ggplot(clip.germ) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("number of Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## biomass
+
+ggplot(clip.bio) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Ephedra")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(ephedra.end~Density *Lvl, data=clip, family=poisson)
+anova(m1, test="Chisq")
+
+
+## shade
+
+## germination
+
+ggplot(shade.germ) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("number of Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+##biomass
+ggplot(shade.bio) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Ephedra")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(brome.begin~Density *Lvl, data=shade, family=poisson)
+anova(m1, test="Chisq")
+
+```
