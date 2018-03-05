@@ -60,10 +60,10 @@ ggplot(mean.area) + geom_point(aes(x=density, y=area), size=3)+ylab("log (area o
 m1 <- lm(area~density, data=mean.area)
 summary(m1)
 
-ggplot(mean.area) + geom_point(aes(x=density, y=rdm), size=mean.area$area+1)+ylab("residual dry matter")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~x,aes(x=density, y=rdm))
+ggplot(mean.area) + geom_point(aes(x=density, y=rdm), size=mean.area$area+1)+ylab("residual dry matter")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~exp(x),aes(x=density, y=rdm))
 
 
-m2 <- lm(rdm~density, data=mean.area)
+m2 <- lm(log(rdm)~density, data=mean.area)
 summary(m2)
 ```
 
