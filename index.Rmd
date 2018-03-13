@@ -381,6 +381,6 @@ summary(m4)
 ## below ground biomass
 ggplot(dense, aes(x=brome.begin, y=blw.grd))+geom_point()+ theme_Publication() +ylab("below-ground biomass") + xlab("B. madritensis density") + geom_smooth(method=lm, formula= y ~ poly(x,2))
 
-m5 <- lm(abv.grd~poly(brome.begin,2), data=dense)
+m5 <- lm(blw.grd~poly(brome.begin,2), data=dense)
 summary(m5)
 ```
