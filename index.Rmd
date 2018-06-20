@@ -384,3 +384,17 @@ ggplot(dense, aes(x=brome.begin, y=blw.grd))+geom_point()+ theme_Publication() +
 m5 <- lm(blw.grd~poly(brome.begin,2), data=dense)
 summary(m5)
 ```
+
+
+### Germination patterns
+```{r}
+recruit
+recruit[is.na(recruit)] <- 0
+
+recruit[,"eph.rate"] <- recruit$ephedra.emergence/3*100
+
+## Percent of ephedra seedlings becoming established
+mean(recruit$eph.rate)
+
+## Percent of brome seedlings becoming established
+mean(recruit$brome.prop.begin)
