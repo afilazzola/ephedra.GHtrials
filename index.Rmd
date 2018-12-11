@@ -49,7 +49,7 @@ source("functions.r")
 ### Ephedra characteristics at the landscape
 
 ```{r}
-avg.size <- landscape %>% summarize(H=mean(H), D1=mean(D1), Area=mean(Area), density=mean(Shrub.density), rdm=mean(RDM.2013))
+avg.size <- landscape %>% summarize(h=mean(H), d1=mean(D1), area=mean(Area), density=mean(Shrub.density), rdm=mean(RDM.2013),h.se=se(H), d1.se=se(D1), area.se=se(Area), density.se=se(Shrub.density), rdm.se=se(RDM.2013))
 avg.size
 ```
 
@@ -206,6 +206,17 @@ ggplot(max.eph, aes(x=Sand, y=eph)) + geom_point(fill="black", size=4) +
 
 m1 <- lm(eph~poly(as.numeric(Sand),2), data=max.eph)
 summary(m1)
+
+
+## Difference between emergence and survival
+substrate2 <- subset(substrate, census==10)
+substrate2[,"diff"] <- subset(substrate, census==1, "survival")+subset(substrate, census==10,"survival")
+substrate2 <- subset(substrate2, diff!=0) ## remove plots that had no plants
+substrate2[,"diff"] <- substrate2[,"diff"]-1 ## binomial whether or not survived 
+
+
+m2 <- glm(diff ~ Micro, family=binomial, data=substrate2)
+anova(m2, test="Chisq")
 ```
 
 ### Test of limiting factors - brome
