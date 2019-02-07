@@ -31,6 +31,7 @@ library(tidyverse)
 library(OIsurv)
 library(lsmeans)
 library(ggthemes)
+library(ape)
 
 ## load data
 substrate <-read.csv("data/Ephedra.substrate.csv")
@@ -72,6 +73,13 @@ ggplot(mean.area) + geom_point(aes(x=density, y=rdm), size=mean.area$area+1)+yla
 
 m2 <- lm(log(rdm)~density, data=mean.area)
 summary(m2)
+
+
+m1 <- lm(Shrub.density ~ RDM.2013, data=landscape) ## compare RDM with shrub density 
+
+m3 <- manova(cbind(Shrub.density, Log.area) ~ RDM.2013, data=landscape)
+summary(m3)
+summary.aov(m3)
 ```
 
 ### Ephedra optimal substrate
