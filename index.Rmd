@@ -49,7 +49,7 @@ source("functions.r")
 ### Ephedra characteristics at the landscape
 
 ```{r}
-avg.size <- landscape %>% summarize(H=mean(H), D1=mean(D1), Area=mean(Area), density=mean(Shrub.density), rdm=mean(RDM.2013))
+avg.size <- landscape %>% summarize(h=mean(H), d1=mean(D1), area=mean(Area), density=mean(Shrub.density), rdm=mean(RDM.2013),h.se=se(H), d1.se=se(D1), area.se=se(Area), density.se=se(Shrub.density), rdm.se=se(RDM.2013))
 avg.size
 ```
 
@@ -201,11 +201,21 @@ max.eph[,"upper"] <- max.eph[,"eph"]+max.eph[,"eph.se"]
 
 
 ggplot(max.eph, aes(x=Sand, y=eph)) + geom_point(fill="black", size=4) +
-  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("total Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") + ylim(0,1) + stat_smooth(method="lm", formula= y~poly(x,2),data=max.eph, aes(x=as.numeric(Sand), y=eph), lwd=1, color="black", lty=2)
-
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab(expression("Average emerged plants of   "*italic("E. californica")))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") + ylim(0,1) + stat_smooth(method="lm", formula= y~poly(x,2),data=max.eph, aes(x=as.numeric(Sand), y=eph), lwd=1, color="black", lty=2)
 
 m1 <- lm(eph~poly(as.numeric(Sand),2), data=max.eph)
 summary(m1)
+
+
+## Difference between emergence and survival
+substrate2 <- subset(substrate, census==10)
+substrate2[,"diff"] <- subset(substrate, census==1, "survival")+subset(substrate, census==10,"survival")
+substrate2 <- subset(substrate2, diff!=0) ## remove plots that had no plants
+substrate2[,"diff"] <- substrate2[,"diff"]-1 ## binomial whether or not survived 
+
+
+m2 <- glm(diff ~ Micro, family=binomial, data=substrate2)
+anova(m2, test="Chisq")
 ```
 
 ### Test of limiting factors - brome
@@ -308,28 +318,29 @@ anova(m1, test="Chisq")
 ### Summarized GLMs for manuscript
 ```{r}
 ## Water
-m1 <- glm(ephedra.end~ Density *Lvl, data=water, family=binomial)
+m1 <- glm(ephedra.end~ Density *Lvl , data=water, family=binomial)
 anova(m1, test="Chisq")
-m1.bio <- glm(Ephedra.biomass~Density *Lvl, data=subset(water, Ephedra.biomass>0 & Ephedra.biomass<0.6), family=Gamma)
+m1.bio <- glm(Ephedra.biomass~Density *Lvl, data=subset(water, Ephedra.biomass>0, family=Gamma))
 anova(m1.bio, test="Chisq")
+
 
 ## Shade
 m2 <- glm(ephedra.end~ Density *Lvl, data=shade, family=binomial)
 anova(m2, test="Chisq")
-m2.bio <- glm(Ephedra.biomass~Density *Lvl, data=subset(shade, Ephedra.biomass>0 & Ephedra.biomass < 0.7), family=Gamma)
+m2.bio <- glm(Ephedra.biomass~Density *Lvl , data=subset(shade, Ephedra.biomass>0), family=Gamma)
 anova(m2.bio, test="Chisq")
 
 ## Clipping
 m3 <- glm(ephedra.end~ Density *Lvl, data=clip, family=binomial)
 anova(m3, test="Chisq")
-m3.bio <- glm(Ephedra.biomass~Density *Lvl, data=subset(clip, Ephedra.biomass>0 & Ephedra.biomass < 0.7), family=Gamma)
+m3.bio <- glm(Ephedra.biomass~Density *Lvl, data=subset(clip, Ephedra.biomass>0), family=Gamma)
 anova(m3.bio, test="Chisq")
 
 
 m4 <-  glm(ephedra.end~brome.begin, data=recruit, family=binomial)
 anova(m4, test="Chisq")
 
-m4.bio <-  glm(Ephedra.biomass~brome.begin, data=subset(recruit, Ephedra.biomass>0 & Ephedra.biomass < 0.7), family=Gamma)
+m4.bio <-  glm(Ephedra.biomass~brome.begin, data=subset(recruit, Ephedra.biomass>0 ), family=Gamma)
 anova(m4.bio, test="Chisq")
 
 ## brome comparisons
@@ -373,13 +384,13 @@ m3 <- lm(germ~brome.begin, data=dense)
 
 
 ## above ground biomass 
-ggplot(dense, aes(x=brome.begin, y=abv.grd))+geom_point()+ theme_Publication() +ylab("above-ground biomass") + xlab("B. madritensis") + geom_smooth(method=lm, formula= y ~ x)
+ggplot(dense, aes(x=brome.begin, y=abv.grd))+geom_point()+ theme_Publication() +ylab("above-ground biomass") + xlab(expression(italic("B. madritensis")*" density")) + geom_smooth(method=lm, formula= y ~ x)+ xlim(0,20)
 
 m4 <- lm(abv.grd~brome.begin, data=dense)
 summary(m4)
 
 ## below ground biomass
-ggplot(dense, aes(x=brome.begin, y=blw.grd))+geom_point()+ theme_Publication() +ylab("below-ground biomass") + xlab("B. madritensis density") + geom_smooth(method=lm, formula= y ~ poly(x,2))
+ggplot(dense, aes(x=brome.begin, y=blw.grd))+geom_point()+ theme_Publication() +ylab("below-ground biomass") + xlab(expression(italic("B. madritensis")*" density")) + geom_smooth(method=lm, formula= y ~ poly(x,2)) + xlim(0,20)
 
 m5 <- lm(blw.grd~poly(brome.begin,2), data=dense)
 summary(m5)
