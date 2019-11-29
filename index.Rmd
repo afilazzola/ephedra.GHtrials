@@ -68,7 +68,9 @@ ggplot(mean.area) + geom_point(aes(x=density, y=area), size=3)+ylab("log (area o
 m1 <- lm(area~density, data=mean.area)
 summary(m1)
 
-ggplot(mean.area) + geom_point(aes(x=rdm, y=density), size=mean.area$area+1)+xlab("residual dry matter")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + ylab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~x,aes(x=rdm, y=density))
+## convert RDM to kg
+
+ggplot(mean.area) + geom_point(aes(x=rdm*20, y=density), size=mean.area$area+1)+xlab("residual dry matter (kg / acre)")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + ylab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~x,aes(x=rdm*20, y=density))
 
 
 m2 <- lm(log(rdm)~density, data=mean.area)
@@ -404,6 +406,45 @@ m5 <- lm(blw.grd~poly(brome.begin,2), data=dense)
 summary(m5)
 ```
 
+### Compare regression co-efficients
+```{r}
+library(broom)
+recruit[is.na(recruit)] <- 0
+
+## unique test
+recruit[,"test"] <- paste0(recruit$Treatment,"-", recruit$Lvl)
+biomass <- recruit %>% filter(Ephedra.biomass  > 0)
+
+## join above and below
+biolong <- biomass %>% gather(biomass, value, 14:15)
+
+## conduct linear regression against brome density
+regdata <- biolong %>% group_by(test, biomass) %>%
+  do(lmOut = lm(log(value+0.0001) ~ poly(Density,2), data = .))
+regcoef <- tidy(regdata, lmOut) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
+regcoef
+
+
+## compare root vs shoot linear-models only
+regdata <- biolong %>% group_by(test, biomass) %>%
+  do(lmOut = lm(log(value+0.0001) ~ Density -1, data = .))
+regcoef <- tidy(regdata, lmOut) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
+regcoef
+
+## Test above vs below response to brome on density gradient
+t.test(estimate ~ biomass, data=regcoef)
+
+
+## Check against brome Biomass
+regdata <- biolong %>% group_by(test, biomass) %>%
+  do(lmOut = lm(log(value+0.0001) ~ brome.biomass, data = .))
+
+regcoef <- tidy(regdata, lmOut) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
+regcoef
+
+## Test root vs shoot
+t.test(estimate ~ biomass, data=regcoef)
+```
 
 ### Germination patterns
 ```{r}
