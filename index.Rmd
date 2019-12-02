@@ -437,13 +437,79 @@ t.test(estimate ~ biomass, data=regcoef)
 
 ## Check against brome Biomass
 regdata <- biolong %>% group_by(test, biomass) %>%
-  do(lmOut = lm(log(value+0.0001) ~ brome.biomass, data = .))
+  do(lmOut = lm(log(value+0.0001) ~ brome.biomass -1 , data = .))
+biolong %>% group_by(test, biomass) %>% summarize(n=length(value))
 
-regcoef <- tidy(regdata, lmOut) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
+
+regcoef <- tidy(regdata, lmOut, n) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
 regcoef
 
 ## Test root vs shoot
 t.test(estimate ~ biomass, data=regcoef)
+
+## rename test column
+newframe <- data.frame(test=unique(regcoef$test), treatments=c("clip-1", "clip-2","control","high shade","med shade","high water","low water"), sorting=c(2,3,1,5,4,7,6))  
+newframe <- rbind(newframe, newframe)                   
+newframe[,"biomass"]  <- rep(unique(regcoef$biomass), each=7) 
+newframe[,"tissue"] <- rep(c("aboveground","belowground"), each=7)
+
+
+coefplot <- merge(regcoef, newframe, by=c("test","biomass"))
+coefplot[order(coefplot$sorting),]
+
+coefplot$treatments <- reorder(coefplot$treatments, coefplot$sorting)
+
+## plot regression coefficients
+ggplot(coefplot, aes(x=treatments, y=estimate)) + geom_point(size=3) + facet_grid(~tissue) + theme_Publication() + geom_errorbar(aes(x=treatments, ymin=estimate-std.error, ymax=estimate+std.error), width=0) + xlab("") + ylab("B. madritnesis effect")
+                                                                                 
+                                                 
+## plot raw biomass among treatments
+bioavg <- biolong %>% group_by(test, biomass) %>% summarize(bio=mean(value), error=se(value))
+bioavg <- merge(bioavg, newframe)
+
+bioavg$treatments <- reorder(bioavg$treatments, bioavg$sorting)
+
+ggplot(bioavg, aes(x=treatments, y=bio, fill=tissue)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab("biomass (g)") + theme_Publication() + geom_errorbar(aes(x=treatments, ymin=bio-error, ymax=bio+error), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+```
+
+### ANCOVA and probability of establishment
+```{r} 
+
+## unique test
+recruit[,"test"] <- paste0(recruit$Treatment,"-", recruit$Lvl)
+recruit[is.na(recruit)] <- 0
+biomass <- recruit %>% filter(Ephedra.biomass  > 0 & Ephedra.biomass < 0.6)
+
+## Model above
+
+
+library(emmeans)
+
+compare <- lstrends(m1, pairwise ~ test,  var="brome.biomass")
+compare
+
+
+compare <- lstrends(m2, pairwise ~ test,  var="brome.biomass")
+compare
+
+## Compare Emergence
+m1 <- glm(ephedra.begin ~ Density* test, data=recruit, family="binomial")
+anova(m1, test="Chisq")
+
+## Compare Establishment
+m2 <- glm(ephedra.end ~ Density* test, data=recruit, family="binomial")
+anova(m2, test="Chisq")
+
+## Compare growth
+m3 <- lm(sqrt(Ephedra.above+0.001) ~ test * brome.biomass, data=biomass)
+anova(m3)
+
+## Model below
+m4 <- lm(sqrt(Ephedra.below+0.001) ~ test * brome.biomass, data=biomass)
+anova(m4)
+
+
 ```
 
 ### Germination patterns
