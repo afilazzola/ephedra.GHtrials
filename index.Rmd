@@ -497,13 +497,21 @@ compare
 m1 <- glm(ephedra.begin ~ Density* test, data=recruit, family="binomial")
 anova(m1, test="Chisq")
 
+emmeans(m1, pairwise~test, var="ephedra.begin")
+
 ## Compare Establishment
 m2 <- glm(ephedra.end ~ Density* test, data=recruit, family="binomial")
 anova(m2, test="Chisq")
 
+emmeans(m2, pairwise~test, var="ephedra.end")
+
 ## Compare growth
 m3 <- lm(sqrt(Ephedra.above+0.001) ~ test * brome.biomass, data=biomass)
 anova(m3)
+
+## compare pairwise comparisons
+interact <- lstrends(m3,  ~ test , var = "brome.biomass")
+contrast(interact,         list("clipped"=c(.5,.5,-1,0,0,0,0),"shade"=c(0,0,-1,.5,.5,0,0),"water"=c(0,0,-1,0,0,.5,.5)))
 
 ## Model below
 m4 <- lm(sqrt(Ephedra.below+0.001) ~ test * brome.biomass, data=biomass)
