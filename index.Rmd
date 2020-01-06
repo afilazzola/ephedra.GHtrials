@@ -3,12 +3,14 @@ title: 'Cost of facilitation: invasive grasses limit recruitment of benefactor s
 author: "afilazzola & cjlortie"
 date: "September 2017"
 output:
+  
   html_document:
     theme: yeti
     toc: yes
     toc_float: yes
     toc_depth: 3
-  
+editor_options: 
+  chunk_output_type: console
 ---
 
 ![](ephedra.jpg)
@@ -28,7 +30,7 @@ Shrubs facilitate the abundance and productive of annual plants in desert ecosys
 
 ## load libraries
 library(tidyverse)
-library(OIsurv)
+# library(OIsurv)
 library(lsmeans)
 library(ggthemes)
 library(ape)
@@ -84,8 +86,9 @@ summary(m3)
 summary.aov(m3)
 ```
 
+
 ### Ephedra optimal substrate
-```{r, fig.height=8, fig.width=10}
+```{r, fig.height=8, fig.width=10, eval=FALSE}
 substrate[,"Sand"] <- as.factor(substrate$Sand)
 substrate[,"census"] <- as.factor(substrate$census)
 
@@ -481,17 +484,9 @@ recruit[,"test"] <- paste0(recruit$Treatment,"-", recruit$Lvl)
 recruit[is.na(recruit)] <- 0
 biomass <- recruit %>% filter(Ephedra.biomass  > 0 & Ephedra.biomass < 0.6)
 
-## Model above
-
 
 library(emmeans)
 
-compare <- lstrends(m1, pairwise ~ test,  var="brome.biomass")
-compare
-
-
-compare <- lstrends(m2, pairwise ~ test,  var="brome.biomass")
-compare
 
 ## Compare Emergence
 m1 <- glm(ephedra.begin ~ Density* test, data=recruit, family="binomial")
@@ -532,3 +527,66 @@ mean(recruit$eph.rate)
 
 ## Percent of brome seedlings becoming established
 mean(recruit$brome.prop.begin)
+```
+
+
+### Shrub-plant facilitation results
+```{r}
+## load plant comp data
+plant <- read.csv("data//ephedra.plantcomp.csv")
+
+library(lmerTest)
+
+## community measures
+plant[,"abd"] <- apply(plant[,9:48], 1, function(x) sum(x, na.rm=T)) ## abundance 
+plant[,"rich"] <- apply(plant[,9:48], 1, function(x) sum(x>0, na.rm=T))
+
+## percent brome
+plant[is.na(plant)] <- 0
+mean(plant[,"B.rubens"]/plant[,"abd"])*100
+
+## fit a linear model
+m1 <- glmer.nb(abd ~ microsite + (1|year) + (1|site), data=plant)
+summary(m1)
+car::Anova(m1, test="Chisq")
+
+m2 <- glmer.nb(rich ~ microsite + (1|year) + (1|site), data=plant)
+summary(m2)
+car::Anova(m2, test="Chisq")
+
+
+### calculate averages and variance
+plantavg <- plant %>% group_by(microsite) %>% summarize(ABD=mean(abd), RICH=mean(rich),ABD.se=se(abd)*1.96,  RICH.se=se(rich)*1.96 )
+
+##abundance
+abd <- plantavg[,c(1:2,4)]
+abd[,2:3] <- abd[,2:3]/0.25
+
+## plot
+plot1 <- ggplot(abd, aes(x=microsite, y=ABD, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab(expression("plant density (m"^2*")")) + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=ABD-ABD.se, ymax=ABD+ABD.se), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+## richness
+rich <- plantavg[,c(1,3,5)]
+
+
+## plot
+plot2 <- ggplot(rich, aes(x=microsite, y=RICH, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab("species richness") + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=RICH-RICH.se, ymax=RICH+RICH.se), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+require(gridExtra)
+
+grid.arrange(plot1, plot2, nrow=2)
+
+
+### compare just brome
+plant[,"perBrome"] <- plant[,"B.rubens"]/plant[,"abd"]*100
+
+m1 <- glmer(B.rubens/abd ~ microsite + (1|site) + (1|year), data=plant, family="binomial")
+summary(m1)
+car::Anova(m1, test="Chisq")
+
+m2 <- glmer.nb(B.rubens ~ microsite + (1|site) + (1|year), data=plant)
+summary(m2)
+car::Anova(m2, test="Chisq")
+
+
+plant %>% group_by(microsite) %>% summarize(avg=mean(B.rubens), error=se(B.rubens))
