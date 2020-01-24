@@ -1,0 +1,20 @@
+---
+title: "chris"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## density series
+```{r density}
+library(tidyverse)
+data <- read.csv("data/ephedra.recruitment.csv") %>%
+  rename(light = Lvl)
+
+ggplot(data, aes(Density, ephedra.emergence, color = light)) +
+  geom_point() +
+  geom_smooth(se = FALSE)
+
+```
