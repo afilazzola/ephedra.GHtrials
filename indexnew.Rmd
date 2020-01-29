@@ -1,0 +1,134 @@
+---
+title: 'Cost of facilitation: invasive grasses limit recruitment of benefactor shrubs.'
+author: "afilazzola & cjlortie"
+date: "September 2020"
+output:
+  
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+![](ephedra.jpg)
+
+[ecoblender](http://ecoblender.org)
+
+[alex.filazzola](http://www.filazzola.info)
+
+#### Abstract
+
+Shrubs facilitate the abundance and productive of annual plants in desert ecosystems.However, these shrub microhabitats favour plant species with competitive life histories. Ephedra californica is a dominant shrub in the San Joaquin desert that has been identified as a facilitator. Here, we explore the factors that limit the Ephedra californica recruitment into the San Joaquin desert including substrate, water availability, and herbivory. We also explore the role of the invasive grass Bromus madritensis on limiting establishment of E. californica. Vegetation surveys were conducted in the field during 2013 and collected seed was then used to conduct two greenhouse trials. The first explore germination and establishment techniques for E. california and the optimal substrate. The second examined E. californica establishment in present of the invasive B. madritensis responding to different water levels and herbivory. These results can have implications for land managers in the San Joaquin Valley to maintain native shrub biodiversity in the region. 
+
+
+
+---
+```{r data & library input, warning=FALSE, message=FALSE}
+
+## load libraries
+library(tidyverse)
+# library(OIsurv)
+library(lsmeans)
+library(ggthemes)
+library(ape)
+
+## load data
+substrate <-read.csv("data/Ephedra.substrate.csv")
+recruit <-read.csv("data/Ephedra.recruitment.csv")
+landscape <-read.csv("data/ephedra.landscape.csv")
+
+##load functions
+## inverse hyperbolic sine transformation 
+ihs <- function(x) {
+    y <- log(x + sqrt(x ^ 2 + 1))
+    return(y)
+}
+se <- function(x, ...) sqrt(var(na.omit(x))/length(na.omit(x)))
+source("functions.r")
+```
+### Ephedra characteristics at the landscape
+
+```{r}
+avg.size <- landscape %>% summarize(h=mean(H), d1=mean(D1), area=mean(Area), density=mean(Shrub.density), rdm=mean(RDM.2013),h.se=se(H), d1.se=se(D1), area.se=se(Area), density.se=se(Shrub.density), rdm.se=se(RDM.2013))
+avg.size
+```
+
+
+
+### Ephedra recruitment at landscape -Drop
+```{r}
+```
+
+
+
+### Test of limiting factors - brome
+```{r}
+recruit[is.na(recruit)] <- 0
+
+## detailed names for treatments
+recruit[,"Lvl"] <- as.character(recruit[,"Lvl"]) ## convert variables to characters
+treats <- data.frame(Lvl=c("none","low","high","med","once","twice"), treat=c("control","low water","high water","partial shade","clipped once","clipped twice"), stringsAsFactors =F)
+recruit <- merge(recruit, treats, by="Lvl")
+recruit[recruit$Treatment=="shade" & recruit$Lvl == "high","treat"] <- "full shade"
+recruit[,"treat"] <- as.factor(recruit[,"treat"]) ## convert back to factor
+
+## Ephedra establishment & survival
+recruit[,"emergence"] <- ifelse(recruit$ephedra.emergence>0, 1,0)
+recruit[,"survival"] <- ifelse(recruit$ephedra.end==recruit$emergence,1,0)
+recruit[recruit$emergence==0,"survival"] <- NA
+names(recruit)[16] <- "biomass" ## simplify biomass name for Ephedra
+
+## water
+water <- subset(recruit, Treatment == "control" | Treatment=="water")
+water.long <- water %>% gather(measure, value, c(19,20)) ## collapse different ephedra measures
+
+## Plot all metrics as an average of brome density
+water.germ <- water.long %>% group_by(Density, treat, measure) %>% summarize(value=mean(value, na.rm=T))
+
+plot1 <-  ggplot(water.germ, aes(x=Density, y=value,color=treat)) +ylab("E. californica response")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + geom_smooth( method="lm", formula= y~x, se=FALSE, lwd=2) + facet_grid(measure~"water", scales= "free_y") + scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9"))
+
+## shade
+shade <- subset(recruit, Treatment == "control" | Treatment=="shade")
+shade.long <- shade %>% gather(measure, value, c(19,20)) ## collapse different ephedra measures
+
+plot2 <- ggplot(shade.long, aes(x=Density, y=value, color=treat)) +ylab("E. californica response")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + geom_smooth( method="lm", formula= y~x, se=FALSE, lwd=2) + facet_grid(measure~"shade", scales= "free_y") + scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9"))
+
+
+## clipping
+clip <- subset(recruit, Treatment == "control" | Treatment=="clipped")
+clip.long <- clip %>% gather(measure, value, c(19,20)) ## collapse different ephedra measures
+
+plot3 <- ggplot(clip.long , aes(x=Density, y=value, color=treat)) +ylab("E. californica response")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + geom_smooth( method="lm", formula= y~x, se=FALSE, lwd=2) + facet_grid(measure~"clipping", scales= "free_y") + scale_color_manual(values=c("#E69F00", "#56B4E9","#999999"))
+
+library(gridExtra)
+
+grid.arrange(plot1, plot2, plot3, ncol=3)
+
+
+## models for survival and emergence
+library(emmeans)
+
+
+## Compare Emergence
+m1 <- glm(ephedra.begin ~ Density* treat, data=shade, family="binomial")
+anova(m1, test="Chisq")
+
+emmeans(m1, pairwise~treat, var="ephedra.begin")
+
+interact <- lstrends(m1, ~treat, var="Density")
+contrast(interact)
+         
+         ,         list("clipped"=c(.5,.5,-1,0,0,0,0),"shade"=c(0,0,-1,.5,.5,0,0),"water"=c(0,0,-1,0,0,.5,.5)))
+
+
+## Compare Survival
+m2 <- glm(survival ~ Density* treat, data=shade, family="binomial")
+anova(m2, test="Chisq")
+
+emmeans(m2, pairwise~treat, var="survival")
+
+interact <- lstrends(m2, ~treat, var="Density")
+contrast(interact)
