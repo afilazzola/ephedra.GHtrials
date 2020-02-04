@@ -31,7 +31,7 @@ Shrubs facilitate the abundance and productive of annual plants in desert ecosys
 ## load libraries
 library(tidyverse)
 # library(OIsurv)
-library(lsmeans)
+library(emmeans)
 library(ggthemes)
 library(ape)
 
@@ -58,8 +58,10 @@ avg.size
 
 
 
-### Ephedra recruitment at landscape -Drop
+### Ephedra recruitment at landscape -Drop?
 ```{r}
+
+
 ```
 
 
@@ -78,7 +80,7 @@ recruit[,"treat"] <- as.factor(recruit[,"treat"]) ## convert back to factor
 ## Ephedra establishment & survival
 recruit[,"emergence"] <- ifelse(recruit$ephedra.emergence>0, 1,0)
 recruit[,"survival"] <- ifelse(recruit$ephedra.end==recruit$emergence,1,0)
-recruit[recruit$emergence==0,"survival"] <- NA
+recruit[recruit$emergence==0,"survival"] <- 0
 names(recruit)[16] <- "biomass" ## simplify biomass name for Ephedra
 
 ## water
@@ -101,7 +103,7 @@ plot2 <- ggplot(shade.long, aes(x=Density, y=value, color=treat)) +ylab("E. cali
 clip <- subset(recruit, Treatment == "control" | Treatment=="clipped")
 clip.long <- clip %>% gather(measure, value, c(19,20)) ## collapse different ephedra measures
 
-plot3 <- ggplot(clip.long , aes(x=Density, y=value, color=treat)) +ylab("E. californica response")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + geom_smooth( method="lm", formula= y~x, se=FALSE, lwd=2) + facet_grid(measure~"clipping", scales= "free_y") + scale_color_manual(values=c("#E69F00", "#56B4E9","#999999"))
+plot3 <- ggplot(clip.long , aes(x=Density, y=value, color=treat)) +ylab("E. californica response")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + geom_smooth( method="lm", formula= y~x, se=T, lwd=2) + facet_grid(measure~"clipping", scales= "free_y") + scale_color_manual(values=c("#E69F00", "#56B4E9","#999999"))
 
 library(gridExtra)
 
@@ -110,25 +112,144 @@ grid.arrange(plot1, plot2, plot3, ncol=3)
 
 ## models for survival and emergence
 library(emmeans)
-
+recruit$treat <- factor(recruit$treat, levels(recruit$treat)[c(1:2,7:3)]) ## reorder control to last treatment
 
 ## Compare Emergence
-m1 <- glm(ephedra.begin ~ Density* treat, data=shade, family="binomial")
-anova(m1, test="Chisq")
-
-emmeans(m1, pairwise~treat, var="ephedra.begin")
-
-interact <- lstrends(m1, ~treat, var="Density")
-contrast(interact)
-         
-         ,         list("clipped"=c(.5,.5,-1,0,0,0,0),"shade"=c(0,0,-1,.5,.5,0,0),"water"=c(0,0,-1,0,0,.5,.5)))
+m1 <- glm(ephedra.begin ~ Density* treat, data=recruit, family="binomial")
+car::Anova(m1, type="2")
+emmeans(m1, specs = trt.vs.ctrlk ~treat, var="survival")
+out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")$contrast)
 
 
 ## Compare Survival
-m2 <- glm(survival ~ Density* treat, data=shade, family="binomial")
-anova(m2, test="Chisq")
+m2 <- glm(survival ~ Density* treat, data=recruit, family="binomial")
+car::Anova(m2, type="2")
 
-emmeans(m2, pairwise~treat, var="survival")
+emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")
+out2 <- data.frame(emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")$contrast)
 
-interact <- lstrends(m2, ~treat, var="Density")
-contrast(interact)
+## Compare growth
+m3 <- lm(sqrt(Ephedra.above) ~ Density * treat, data= subset(recruit, Ephedra.above >0))
+car::Anova(m3, type="2")
+out3 <- data.frame(emmeans(m3, specs = trt.vs.ctrlk ~treat, var="Ephedra.above")$contrast)
+
+
+m4 <- lm(sqrt(Ephedra.below) ~ Density * treat, data= subset(recruit, Ephedra.below >0))
+car::Anova(m4, type="2")
+out4 <- data.frame(emmeans(m4, specs = trt.vs.ctrlk ~treat, var="Ephedra.below")$contrast)
+
+## effect of treatment on brome
+m5 <- lm(sqrt(brome.biomass) ~ treat, data=subset(recruit, brome.biomass >0 ))
+anova(m5)
+out5 <- data.frame(emmeans(m5, specs = trt.vs.ctrlk ~treat, var="brome.biomass")$contrast)
+
+
+m6 <- glm(brome.prop.begin/100 ~ treat, data=recruit, family="binomial")
+anova(m6, test="Chisq")
+emmeans(m6, pairwise~treat, var="brome.biomass")
+
+outall <- bind_rows(out1,out2,out3,out4, out5)
+outall[,"comparison"] <- c(rep("emergence", nrow(out1)), rep("survival", nrow(out2)), rep("ABG", nrow(out3)),rep("BWG", nrow(out4)), rep("bromeBio", nrow(out5)))
+
+
+outall[,"treatment"] <- sub("\\ -.*", "", outall$contrast) ## simplify treatment names
+outall[,"treatment"] <- factor(outall[,"treatment"], levels=c("clipped once","clipped twice", "low water", "high water", "partial shade", "full shade"))
+
+## Plot EMMEANS for emergence and survival
+ggplot(outall %>% filter(comparison %in% c("emergence", "survival")), aes(x=treatment, y=estimate)) + geom_bar(stat="identity") + geom_errorbar(aes(ymin=estimate-SE*1.96, ymax=estimate+SE*1.96), width=0) + facet_grid(comparison~1) + theme_Publication() + ylab("Estimated marginal means")
+
+## Plot EMMEANS for ABG and BWG biomass with brome
+outall[,"biomass"]<- ifelse(outall[,"comparison"] == "ABG", "E. californica - AGB", 
+                               ifelse(outall[,"comparison"] == "BWG", "E. californica - BGB", "B. madritensis"))
+ggplot(outall %>% filter(comparison %in% c("ABG", "BWG","bromeBio")), aes(x=treatment, y=estimate)) + geom_bar(stat="identity") + geom_errorbar(aes(ymin=estimate-SE*1.96, ymax=estimate+SE*1.96), width=0) + facet_grid(biomass~1,  scales= "free_y") + theme_Publication() + ylab("Estimated marginal means")
+
+
+### plot densities of brome
+m1 <- glm(ephedra.begin ~ Density* treat, data=recruit, family="binomial")
+car::Anova(m1, type="2")
+emmeans(m1, specs = trt.vs.ctrlk ~treat, var="survival")
+out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")$contrast)
+
+
+predEmerge <- predict(m1, newdata=data.frame(Density = 0:20), type="response", se.fit=T)
+predData <- data.frame(Density = 0:20, fit=predEmerge$fit, error=predEmerge$se.fit)
+
+
+ggplot(predData, aes(x=Density, y=fit)) + geom_line()
+
+ggplot( recruit, aes(x=Density, y=survival)) +
+  geom_point() +
+  geom_smooth(method = "glm", 
+    method.args = list(family = "binomial"), 
+    se = FALSE) 
+
+```
+
+
+### Shrub-plant facilitation results
+```{r}
+## load plant comp data
+plant <- read.csv("data//ephedra.plantcomp.csv")
+
+library(lmerTest)
+
+## community measures
+plant[,"abd"] <- apply(plant[,9:48], 1, function(x) sum(x, na.rm=T)) ## abundance 
+plant[,"rich"] <- apply(plant[,9:48], 1, function(x) sum(x>0, na.rm=T))
+
+## percent brome
+plant[is.na(plant)] <- 0
+mean(plant[,"B.rubens"]/plant[,"abd"])*100
+
+## fit a linear model
+m1 <- glmer.nb(abd ~ microsite + (1|year) + (1|site), data=plant)
+summary(m1)
+car::Anova(m1, test="Chisq")
+
+m2 <- glmer.nb(rich ~ microsite + (1|year) + (1|site), data=plant)
+summary(m2)
+car::Anova(m2, test="Chisq")
+
+
+### calculate averages and variance
+plantavg <- plant %>% group_by(microsite) %>% summarize(ABD=mean(abd), RICH=mean(rich),ABD.se=se(abd)*1.96,  RICH.se=se(rich)*1.96 )
+
+##abundance
+abd <- plantavg[,c(1:2,4)]
+abd[,2:3] <- abd[,2:3]/0.25
+
+## plot
+plot1 <- ggplot(abd, aes(x=microsite, y=ABD, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab(expression("plant density (m"^2*")")) + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=ABD-ABD.se, ymax=ABD+ABD.se), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+## richness
+rich <- plantavg[,c(1,3,5)]
+
+
+## plot
+plot2 <- ggplot(rich, aes(x=microsite, y=RICH, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab("species richness") + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=RICH-RICH.se, ymax=RICH+RICH.se), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+require(gridExtra)
+
+grid.arrange(plot1, plot2, nrow=2)
+
+
+### compare just brome
+plant[,"perBrome"] <- plant[,"B.rubens"]/plant[,"abd"]*100
+
+m1 <- glmer(B.rubens/abd ~ microsite + (1|site) + (1|year), data=plant, family="binomial")
+summary(m1)
+car::Anova(m1, test="Chisq")
+
+m2 <- glmer.nb(B.rubens ~ microsite + (1|site) + (1|year), data=plant)
+summary(m2)
+car::Anova(m2, test="Chisq")
+
+## simplify dataframe to just brome and not-brome
+bromeOther <- plant[,c("year","microsite","abd","B.rubens")]
+bromeOther$B.rubens <- bromeOther$B.rubens/0.25 ## convert to individuals per m2
+bromeOther <- bromeOther %>% gather(plants, density, 3:4)
+
+avgBrome <- bromeOther %>% group_by(year, microsite, plants) %>% summarize(dens=mean(density), error=se(density))
+
+
+ggplot(avgBrome %>% filter(plants != "abd"), aes(x=microsite, y=dens, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +  ylab(expression(paste(italic("B. madritensis"))*"density (m"^2*")")) + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=dens-error, ymax=dens+error), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer() + facet_grid(~year)
