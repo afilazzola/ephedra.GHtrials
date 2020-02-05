@@ -125,6 +125,7 @@ out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")
 m2 <- glm(survival ~ Density* treat, data=recruit, family="binomial")
 car::Anova(m2, type="2")
 
+
 emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")
 out2 <- data.frame(emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")$contrast)
 
