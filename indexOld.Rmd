@@ -1,0 +1,592 @@
+---
+title: 'Cost of facilitation: invasive grasses limit recruitment of benefactor shrubs.'
+author: "afilazzola & cjlortie"
+date: "September 2020"
+output:
+  
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+![](ephedra.jpg)
+
+[ecoblender](http://ecoblender.org)
+
+[alex.filazzola](http://www.filazzola.info)
+
+#### Abstract
+
+Shrubs facilitate the abundance and productive of annual plants in desert ecosystems.However, these shrub microhabitats favour plant species with competitive life histories. Ephedra californica is a dominant shrub in the San Joaquin desert that has been identified as a facilitator. Here, we explore the factors that limit the Ephedra californica recruitment into the San Joaquin desert including substrate, water availability, and herbivory. We also explore the role of the invasive grass Bromus madritensis on limiting establishment of E. californica. Vegetation surveys were conducted in the field during 2013 and collected seed was then used to conduct two greenhouse trials. The first explore germination and establishment techniques for E. california and the optimal substrate. The second examined E. californica establishment in present of the invasive B. madritensis responding to different water levels and herbivory. These results can have implications for land managers in the San Joaquin Valley to maintain native shrub biodiversity in the region. 
+
+
+
+---
+```{r data & library input, warning=FALSE, message=FALSE}
+
+## load libraries
+library(tidyverse)
+# library(OIsurv)
+library(lsmeans)
+library(ggthemes)
+library(ape)
+
+## load data
+substrate <-read.csv("data/Ephedra.substrate.csv")
+recruit <-read.csv("data/Ephedra.recruitment.csv")
+landscape <-read.csv("data/ephedra.landscape.csv")
+
+##load functions
+## inverse hyperbolic sine transformation 
+ihs <- function(x) {
+    y <- log(x + sqrt(x ^ 2 + 1))
+    return(y)
+}
+se <- function(x, ...) sqrt(var(na.omit(x))/length(na.omit(x)))
+source("functions.r")
+```
+### Ephedra characteristics at the landscape
+
+```{r}
+avg.size <- landscape %>% summarize(h=mean(H), d1=mean(D1), area=mean(Area), density=mean(Shrub.density), rdm=mean(RDM.2013),h.se=se(H), d1.se=se(D1), area.se=se(Area), density.se=se(Shrub.density), rdm.se=se(RDM.2013))
+avg.size
+```
+
+
+### Ephedra recruitment at landscape
+```{r}
+## compare ephedra size and density across landscape
+landscape[,"area.group"] <- as.numeric(cut(landscape$Log.area,20))
+hist(landscape$area.group)
+
+mean.area <- landscape %>% group_by(area.group) %>%  summarize(rdm=mean(RDM.2013), area=mean(Log.area), density=mean(Shrub.density))
+
+ggplot(mean.area) + geom_point(aes(x=density, y=area), size=3)+ylab("log (area of shrub)")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~x,aes(x=density, y=area))
+
+m1 <- lm(area~density, data=mean.area)
+summary(m1)
+
+## convert RDM to kg
+
+ggplot(mean.area) + geom_point(aes(x=rdm*20, y=density), size=mean.area$area+1)+xlab("residual dry matter (kg / acre)")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + ylab(expression("shrub density (m"^"2"*")")) +  stat_smooth(method="lm", formula= y~x,aes(x=rdm*20, y=density))
+
+
+m2 <- lm(log(rdm)~density, data=mean.area)
+summary(m2)
+
+
+m1 <- lm(Shrub.density ~ RDM.2013, data=landscape) ## compare RDM with shrub density 
+
+m3 <- manova(cbind(Shrub.density, Log.area) ~ RDM.2013, data=landscape)
+summary(m3)
+summary.aov(m3)
+```
+
+
+### Ephedra optimal substrate
+```{r, fig.height=8, fig.width=10, eval=FALSE}
+substrate[,"Sand"] <- as.factor(substrate$Sand)
+substrate[,"census"] <- as.factor(substrate$census)
+
+m1 <- aov(height ~ Micro * Sand,  data=subset(substrate, census==10))
+summary(m2) ## nothing significant
+
+
+## compare shade on survival of ephedra
+my.surv <- Surv(as.numeric(substrate$census), substrate$survival)
+fit1 <- survfit(my.surv~Micro, data=substrate)
+summary(fit1)
+
+
+par(mar=c(4.5,4.5,.5,.5))
+plot(fit1, col="white", ylim=c(0.2,1), xlim=c(0.9,10.1), ylab="Estimated Survival Function", xlab="Census", cex.lab=1.5, cex.axis=1.3)
+lines(1:10,summary(fit1)[[10]][1:10], col="#E69F00", lty=2) ## upper
+lines(1:10,summary(fit1)[[6]][1:10], col="#E69F00", lwd=2) ## value sun
+lines(1:10,summary(fit1)[[11]][1:10], col="#E69F00", lty=2) ## lower
+lines(1:10,summary(fit1)[[10]][11:20], col="#56B4E9", lty=2) ## upper
+lines(1:10,summary(fit1)[[6]][11:20], col="#56B4E9", lwd=2) ## value shade
+lines(1:10,summary(fit1)[[11]][11:20], col="#56B4E9", lty=2) ## lower
+legend(1.8, 0.35, c("Sun","Shade"), lty=1, lwd=3, col=c("#E69F00","#56B4E9"), cex=1.5)
+
+coxph.fit <- coxph(my.surv ~ Micro, method="breslow", data=substrate)
+coxph.fit 
+
+
+## compare sand on survival of ephedra
+my.surv <- Surv(as.numeric(substrate$census), substrate$survival)
+fit2 <- survfit(my.surv~Sand, data=substrate)
+summary(fit2)
+
+
+test <- substrate %>% group_by(census,Sand) %>%  summarize(count=sum(survival),avg=mean(survival))
+test <- data.frame(test)
+
+par(mar=c(4.5,4.5,.5,.5))
+plot(fit2, col="white", ylim=c(0.2,1), xlim=c(0.9,10.1), ylab="Estimated Survival Function", xlab="Census", cex.lab=1.5, cex.axis=1.3)
+lines(1:10,summary(fit2)[[10]][1:10], col="#E69F00", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][1:10], col="#E69F00", lwd=2) ## value sand 0
+lines(1:10,summary(fit2)[[11]][1:10], col="#E69F00", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][11:20], col="#56B4E9", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][11:20], col="#56B4E9", lwd=2) ## value sand 25
+lines(1:10,summary(fit2)[[11]][11:20], col="#56B4E9", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][21:30], col="#009E73", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][21:30], col="#009E73", lwd=2) ## value sand 50
+lines(1:10,summary(fit2)[[11]][21:30], col="#009E73", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][31:40], col="#CC79A7", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][31:40], col="#CC79A7", lwd=2) ## value sand 75
+lines(1:10,summary(fit2)[[11]][31:40], col="#CC79A7", lty=2) ## lower
+lines(1:10,summary(fit2)[[10]][41:50], col="#D55E00", lty=2) ## upper
+lines(1:10,summary(fit2)[[6]][41:50], col="#D55E00", lwd=2) ## value sand 100
+lines(1:10,summary(fit2)[[11]][41:50], col="#D55E00", lty=2) ## lower
+legend(1.7, 0.44, c("0%","25%","50%","75%","100%"), lty=1, lwd=3, col=c("#E69F00","#56B4E9","#009E73","#CC79A7","#D55E00"), cex=1.2, title="Sand")
+
+coxph.fit <- coxph(my.surv ~ Sand, method="breslow", data=substrate)
+coxph.fit 
+
+## raw number of germinants end trials
+
+end <- subset(substrate, census==10)
+
+## compare microsite
+
+end.means <- end %>% group_by(Micro) %>% summarize(eph=mean(survival), eph.se=se(survival), Height=mean(height, na.rm=T), Height.se=se(height)) %>% gather(measure, value, 2:5) %>% separate(measure, c("Eph",".se")) ## calculate metrics and put long format
+end.means[is.na(end.means$.se),3] <- "mean"
+end.means <- end.means %>% spread(.se, value)
+end.means <- data.frame(end.means)
+
+end.means[,"lower"] <- end.means[,"mean"]-end.means[,"se"]
+end.means[,"upper"] <- end.means[,"mean"]+end.means[,"se"]
+
+survival <- subset(end.means, Eph=="eph")
+
+plot1 <- ggplot(survival, aes(x=Micro, y=mean)) + geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Microsite") 
+
+height <- subset(end.means, Eph=="Height")
+
+plot2 <- ggplot(height, aes(x=Micro, y=mean)) + geom_bar(stat="identity") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average height of Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Microsite") 
+
+require(gridExtra)
+
+grid.arrange(plot1, plot2, ncol=2)
+m1 <- glm(survival~ Sand* Micro, data=end, family="binomial")
+anova(m1, test="Chisq")
+
+lsmeans(m1, pairwise~Sand)
+
+
+## survival
+end.means <- end %>% group_by(Sand) %>% summarize(eph=mean(survival), eph.se=se(survival))
+end.means <- data.frame(end.means)
+
+end.means[,"lower"] <- end.means[,"eph"]-end.means[,"eph.se"]
+end.means[,"upper"] <- end.means[,"eph"]+end.means[,"eph.se"]
+
+ggplot(end.means, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") 
+
+
+## height
+
+end.means <- end %>% group_by(Sand) %>% summarize(eph=mean(height, na.rm=T), eph.se=se(height, na.rm=T))
+end.means <- data.frame(end.means)
+
+end.means[,"lower"] <- end.means[,"eph"]-end.means[,"eph.se"]
+end.means[,"upper"] <- end.means[,"eph"]+end.means[,"eph.se"]
+
+ggplot(end.means, aes(x=Sand, y=eph)) + geom_bar(stat="identity", fill="#56B4E9") +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab("average surviving Ephedra plant")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") 
+
+
+## most germinants
+maximum.germ <- substrate %>% group_by(Micro, Sand, Rep) %>% summarize(eph.max=max(survival))
+
+max.eph <- maximum.germ %>% group_by(Sand) %>% summarize(eph=mean(eph.max,na.rm=T),eph.se=se(eph.max, na.rm=T)) 
+max.eph <- data.frame(max.eph)
+
+max.eph[,"lower"] <- max.eph[,"eph"]-max.eph[,"eph.se"]
+max.eph[,"upper"] <- max.eph[,"eph"]+max.eph[,"eph.se"]
+
+
+ggplot(max.eph, aes(x=Sand, y=eph)) + geom_point(fill="black", size=4) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2)+ylab(expression("Average emerged plants of   "*italic("E. californica")))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16)) + xlab("Percentage of sand in soil") + ylim(0,1) + stat_smooth(method="lm", formula= y~poly(x,2),data=max.eph, aes(x=as.numeric(Sand), y=eph), lwd=1, color="black", lty=2)
+
+m1 <- lm(eph~poly(as.numeric(Sand),2), data=max.eph)
+summary(m1)
+
+
+## Difference between emergence and survival
+substrate2 <- subset(substrate, census==10)
+substrate2[,"diff"] <- subset(substrate, census==1, "survival")+subset(substrate, census==10,"survival")
+substrate2 <- subset(substrate2, diff!=0) ## remove plots that had no plants
+substrate2[,"diff"] <- substrate2[,"diff"]-1 ## binomial whether or not survived 
+
+
+m2 <- glm(diff ~ Micro, family=binomial, data=substrate2)
+anova(m2, test="Chisq")
+```
+
+### Test of limiting factors - brome
+```{r}
+recruit[is.na(recruit)] <- 0
+
+## water
+water <- subset(recruit, Treatment == "control" | Treatment=="water")
+
+## germination
+water.germ <- water %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end ),brome=mean(brome.begin))
+
+ggplot(water.germ) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("number of Bromus germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(brome.begin~Density *Lvl, data=water, family=poisson)
+anova(m1, test="Chisq")
+
+## biomass
+water.bio <- water %>% group_by(Density, Lvl) %>% summarize(eph=mean(Ephedra.biomass ),brome=mean(brome.biomass))
+
+ggplot(water.bio) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Brome")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+
+## clipping
+clip <- subset(recruit, Treatment == "control" | Treatment=="clipped")
+
+## germination
+clip.germ <- clip %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end ),brome=mean(brome.begin))
+
+ggplot(clip.germ) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("number of Bromus germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## biomass
+clip.bio <- clip %>% group_by(Density, Lvl) %>% summarize(eph=mean(Ephedra.biomass ),brome=mean(brome.biomass))
+
+ggplot(clip.bio) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Brome")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(brome.begin~Density *Lvl, data=clip, family=poisson)
+anova(m1, test="Chisq")
+
+
+## shade
+shade <- subset(recruit, Treatment == "control" | Treatment=="shade")
+
+## germination
+shade.germ <- shade %>% group_by(Density, Lvl) %>% summarize(eph=mean(ephedra.end ),brome=mean(brome.begin))
+
+ggplot(shade.germ) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("number of Bromus germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## biomass
+shade.bio <- shade %>% group_by(Density, Lvl) %>% summarize(eph=mean(Ephedra.biomass ),brome=mean(brome.biomass))
+
+ggplot(shade.bio) + geom_jitter(aes(x=Density, y=brome, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Brome")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(brome.begin~Density *Lvl, data=shade, family=poisson)
+anova(m1, test="Chisq")
+
+```
+
+### Test of limiting factors - Ephedra
+```{r}
+## water
+## germination
+
+ggplot(water.germ) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("number of Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+
+## biomass
+
+ggplot(water.bio) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Ephedra")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## clipping
+
+## germination
+
+ggplot(clip.germ) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("number of Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+## biomass
+
+ggplot(clip.bio) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Ephedra")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(ephedra.end~Density *Lvl, data=clip, family=poisson)
+anova(m1, test="Chisq")
+
+
+## shade
+
+## germination
+
+ggplot(shade.germ) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("number of Ephedra germinants")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+##biomass
+ggplot(shade.bio) + geom_jitter(aes(x=Density, y=eph, fill=Lvl, color=Lvl), size=2)+ylab("final biomass of Ephedra")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),axis.line = element_line(colour = "black"),panel.background = element_blank(),axis.text=element_text(size=14),axis.title=element_text(size=16))
+
+m1 <- glm(brome.begin~Density *Lvl, data=shade, family=poisson)
+anova(m1, test="Chisq")
+
+```
+
+
+### Summarized GLMs for manuscript
+```{r}
+## Water
+m1 <- glm(ephedra.end~ Density *Lvl , data=water, family=binomial)
+anova(m1, test="Chisq")
+m1.bio <- glm(Ephedra.biomass~Density *Lvl, data=subset(water, Ephedra.biomass>0, family=Gamma))
+anova(m1.bio, test="Chisq")
+
+
+## Shade
+m2 <- glm(ephedra.end~ Density *Lvl, data=shade, family=binomial)
+anova(m2, test="Chisq")
+m2.bio <- glm(Ephedra.biomass~Density *Lvl , data=subset(shade, Ephedra.biomass>0), family=Gamma)
+anova(m2.bio, test="Chisq")
+
+## Clipping
+m3 <- glm(ephedra.end~ Density *Lvl, data=clip, family=binomial)
+anova(m3, test="Chisq")
+m3.bio <- glm(Ephedra.biomass~Density *Lvl, data=subset(clip, Ephedra.biomass>0), family=Gamma)
+anova(m3.bio, test="Chisq")
+
+
+m4 <-  glm(ephedra.end~brome.begin, data=recruit, family=binomial)
+anova(m4, test="Chisq")
+
+m4.bio <-  glm(Ephedra.biomass~brome.begin, data=subset(recruit, Ephedra.biomass>0 ), family=Gamma)
+anova(m4.bio, test="Chisq")
+
+## brome comparisons
+library(lme4)
+
+## Water
+m1 <- glm(brome.begin/Density~ Lvl, weights=Density, data=subset(water, Density>0), family=binomial)
+anova(m1, test="Chisq")
+
+
+## Shade
+m2 <- glm(brome.begin/Density~ Lvl, weights=Density, data=subset(shade, Density>0), family=binomial)
+anova(m2, test="Chisq")
+
+
+## Clipping
+m3<- glm(brome.begin/Density~ Lvl, weights=Density, data=subset(clip, Density>0), family=binomial)
+anova(m3, test="Chisq")
+```
+
+
+### Brome density vs Ephedra
+```{r}
+
+
+dense <- recruit %>% filter(Ephedra.biomass>0) %>%  group_by(brome.begin) %>% summarize(bio=mean(Ephedra.biomass), recruit=mean(ephedra.end), germ=mean(ephedra.begin), abv.grd=mean(Ephedra.above),blw.grd=mean(Ephedra.below))
+
+ggplot(dense, aes(x=brome.begin, y=bio))+geom_point()+ theme_Publication() +ylab("E. californica biomass") + xlab("brome density") + geom_smooth(method=lm, formula= y ~ poly(x,2))
+
+m1 <- lm(bio~poly(brome.begin,2), data=dense)
+
+## recruitment no effect
+ggplot(dense, aes(x=brome.begin, y=recruit))+geom_point()+ theme_Publication() +ylab("E. californica biomass") + xlab("brome density") #+ geom_smooth(method=lm, formula= y ~ x)
+
+m2 <- lm(recruit~brome.begin, data=dense)
+
+## germination no effect
+ggplot(dense, aes(x=brome.begin, y=germ))+geom_point()+ theme_Publication() +ylab("E. californica biomass") + xlab("brome density") #+ geom_smooth(method=lm, formula= y ~ x)
+
+m3 <- lm(germ~brome.begin, data=dense)
+
+
+## above ground biomass 
+ggplot(dense, aes(x=brome.begin, y=abv.grd))+geom_point()+ theme_Publication() +ylab("above-ground biomass") + xlab(expression(italic("B. madritensis")*" density")) + geom_smooth(method=lm, formula= y ~ x)+ xlim(0,20)
+
+m4 <- lm(abv.grd~brome.begin, data=dense)
+summary(m4)
+
+## below ground biomass
+ggplot(dense, aes(x=brome.begin, y=blw.grd))+geom_point()+ theme_Publication() +ylab("below-ground biomass") + xlab(expression(italic("B. madritensis")*" density")) + geom_smooth(method=lm, formula= y ~ poly(x,2)) + xlim(0,20)
+
+m5 <- lm(blw.grd~poly(brome.begin,2), data=dense)
+summary(m5)
+```
+
+### Compare regression co-efficients
+```{r}
+library(broom)
+recruit[is.na(recruit)] <- 0
+
+## unique test
+recruit[,"test"] <- paste0(recruit$Treatment,"-", recruit$Lvl)
+biomass <- recruit %>% filter(Ephedra.biomass  > 0)
+
+## join above and below
+biolong <- biomass %>% gather(biomass, value, 14:15)
+
+## conduct linear regression against brome density
+regdata <- biolong %>% group_by(test, biomass) %>%
+  do(lmOut = lm(log(value+0.0001) ~ poly(Density,2), data = .))
+regcoef <- tidy(regdata, lmOut) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
+regcoef
+
+
+## compare root vs shoot linear-models only
+regdata <- biolong %>% group_by(test, biomass) %>%
+  do(lmOut = lm(log(value+0.0001) ~ Density -1, data = .))
+regcoef <- tidy(regdata, lmOut) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
+regcoef
+
+## Test above vs below response to brome on density gradient
+t.test(estimate ~ biomass, data=regcoef)
+
+
+## Check against brome Biomass
+regdata <- biolong %>% group_by(test, biomass) %>%
+  do(lmOut = lm(log(value+0.0001) ~ brome.biomass -1 , data = .))
+biolong %>% group_by(test, biomass) %>% summarize(n=length(value))
+
+
+regcoef <- tidy(regdata, lmOut, n) %>% data.frame(.)  %>%  filter(term != "(Intercept)")
+regcoef
+
+## Test root vs shoot
+t.test(estimate ~ biomass, data=regcoef)
+
+## rename test column
+newframe <- data.frame(test=unique(regcoef$test), treatments=c("clip-1", "clip-2","control","high shade","med shade","high water","low water"), sorting=c(2,3,1,5,4,7,6))  
+newframe <- rbind(newframe, newframe)                   
+newframe[,"biomass"]  <- rep(unique(regcoef$biomass), each=7) 
+newframe[,"tissue"] <- rep(c("aboveground","belowground"), each=7)
+
+
+coefplot <- merge(regcoef, newframe, by=c("test","biomass"))
+coefplot[order(coefplot$sorting),]
+
+coefplot$treatments <- reorder(coefplot$treatments, coefplot$sorting)
+
+## plot regression coefficients
+ggplot(coefplot, aes(x=treatments, y=estimate)) + geom_point(size=3) + facet_grid(~tissue) + theme_Publication() + geom_errorbar(aes(x=treatments, ymin=estimate-std.error, ymax=estimate+std.error), width=0) + xlab("") + ylab("B. madritnesis effect")
+                                                                                 
+                                                 
+## plot raw biomass among treatments
+bioavg <- biolong %>% group_by(test, biomass) %>% summarize(bio=mean(value), error=se(value))
+bioavg <- merge(bioavg, newframe)
+
+bioavg$treatments <- reorder(bioavg$treatments, bioavg$sorting)
+
+ggplot(bioavg, aes(x=treatments, y=bio, fill=tissue)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab("biomass (g)") + theme_Publication() + geom_errorbar(aes(x=treatments, ymin=bio-error, ymax=bio+error), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+```
+
+### ANCOVA and probability of establishment
+```{r} 
+
+## unique test
+recruit[,"test"] <- paste0(recruit$Treatment,"-", recruit$Lvl)
+recruit[is.na(recruit)] <- 0
+biomass <- recruit %>% filter(Ephedra.biomass  > 0 & Ephedra.biomass < 0.6)
+
+
+library(emmeans)
+
+
+## Compare Emergence
+m1 <- glm(ephedra.begin ~ Density* test, data=recruit, family="binomial")
+anova(m1, test="Chisq")
+
+emmeans(m1, pairwise~test, var="ephedra.begin")
+
+## Compare Establishment
+m2 <- glm(ephedra.end ~ Density* test, data=recruit, family="binomial")
+anova(m2, test="Chisq")
+
+emmeans(m2, pairwise~test, var="ephedra.end")
+
+## Compare growth
+m3 <- lm(sqrt(Ephedra.above+0.001) ~ test * brome.biomass, data=biomass)
+anova(m3)
+
+## compare pairwise comparisons
+interact <- lstrends(m3,  ~ test , var = "brome.biomass")
+contrast(interact,         list("clipped"=c(.5,.5,-1,0,0,0,0),"shade"=c(0,0,-1,.5,.5,0,0),"water"=c(0,0,-1,0,0,.5,.5)))
+
+## Model below
+m4 <- lm(sqrt(Ephedra.below+0.001) ~ test * brome.biomass, data=biomass)
+anova(m4)
+
+
+```
+
+### Germination patterns
+```{r}
+recruit
+recruit[is.na(recruit)] <- 0
+
+recruit[,"eph.rate"] <- recruit$ephedra.emergence/3*100
+
+## Percent of ephedra seedlings becoming established
+mean(recruit$eph.rate)
+
+## Percent of brome seedlings becoming established
+mean(recruit$brome.prop.begin)
+```
+
+
+### Shrub-plant facilitation results
+```{r}
+## load plant comp data
+plant <- read.csv("data//ephedra.plantcomp.csv")
+
+library(lmerTest)
+
+## community measures
+plant[,"abd"] <- apply(plant[,9:48], 1, function(x) sum(x, na.rm=T)) ## abundance 
+plant[,"rich"] <- apply(plant[,9:48], 1, function(x) sum(x>0, na.rm=T))
+
+## percent brome
+plant[is.na(plant)] <- 0
+mean(plant[,"B.rubens"]/plant[,"abd"])*100
+
+## fit a linear model
+m1 <- glmer.nb(abd ~ microsite + (1|year) + (1|site), data=plant)
+summary(m1)
+car::Anova(m1, test="Chisq")
+
+m2 <- glmer.nb(rich ~ microsite + (1|year) + (1|site), data=plant)
+summary(m2)
+car::Anova(m2, test="Chisq")
+
+
+### calculate averages and variance
+plantavg <- plant %>% group_by(microsite) %>% summarize(ABD=mean(abd), RICH=mean(rich),ABD.se=se(abd)*1.96,  RICH.se=se(rich)*1.96 )
+
+##abundance
+abd <- plantavg[,c(1:2,4)]
+abd[,2:3] <- abd[,2:3]/0.25
+
+## plot
+plot1 <- ggplot(abd, aes(x=microsite, y=ABD, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab(expression("plant density (m"^2*")")) + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=ABD-ABD.se, ymax=ABD+ABD.se), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+## richness
+rich <- plantavg[,c(1,3,5)]
+
+
+## plot
+plot2 <- ggplot(rich, aes(x=microsite, y=RICH, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") + ylab("species richness") + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=RICH-RICH.se, ymax=RICH+RICH.se), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer()
+
+require(gridExtra)
+
+grid.arrange(plot1, plot2, nrow=2)
+
+
+### compare just brome
+plant[,"perBrome"] <- plant[,"B.rubens"]/plant[,"abd"]*100
+
+m1 <- glmer(B.rubens/abd ~ microsite + (1|site) + (1|year), data=plant, family="binomial")
+summary(m1)
+car::Anova(m1, test="Chisq")
+
+m2 <- glmer.nb(B.rubens ~ microsite + (1|site) + (1|year), data=plant)
+summary(m2)
+car::Anova(m2, test="Chisq")
+
+
+plant %>% group_by(microsite) %>% summarize(avg=mean(B.rubens), error=se(B.rubens))
