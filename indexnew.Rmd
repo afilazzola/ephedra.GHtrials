@@ -120,11 +120,13 @@ car::Anova(m1, type="2")
 emmeans(m1, specs = trt.vs.ctrlk ~treat, var="survival")
 out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")$contrast)
 
+pR2 = 1 - m1$deviance / m1$null.deviance
 
 ## Compare Survival
 m2 <- glm(survival ~ Density* treat, data=recruit, family="binomial")
 car::Anova(m2, type="2")
 
+pR2 = 1 - m2$deviance / m2$null.deviance
 
 emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")
 out2 <- data.frame(emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")$contrast)
@@ -157,12 +159,13 @@ outall[,"treatment"] <- sub("\\ -.*", "", outall$contrast) ## simplify treatment
 outall[,"treatment"] <- factor(outall[,"treatment"], levels=c("clipped once","clipped twice", "low water", "high water", "partial shade", "full shade"))
 
 ## Plot EMMEANS for emergence and survival
-ggplot(outall %>% filter(comparison %in% c("emergence", "survival")), aes(x=treatment, y=estimate)) + geom_bar(stat="identity") + geom_errorbar(aes(ymin=estimate-SE*1.96, ymax=estimate+SE*1.96), width=0) + facet_grid(comparison~1) + theme_Publication() + ylab("Estimated marginal means")
+ggplot(outall %>% filter(comparison %in% c("emergence", "survival")), aes(x=treatment, y=estimate)) + geom_point(size=3) + geom_errorbar(aes(ymin=estimate-SE*1.96, ymax=estimate+SE*1.96), width=0) + facet_grid(comparison~.) + theme_Publication() + ylab("Estimated marginal means") + geom_hline(yintercept = 0, lwd=1, lty=2, color="#00000070")
 
 ## Plot EMMEANS for ABG and BWG biomass with brome
 outall[,"biomass"]<- ifelse(outall[,"comparison"] == "ABG", "E. californica - AGB", 
                                ifelse(outall[,"comparison"] == "BWG", "E. californica - BGB", "B. madritensis"))
-ggplot(outall %>% filter(comparison %in% c("ABG", "BWG","bromeBio")), aes(x=treatment, y=estimate)) + geom_bar(stat="identity") + geom_errorbar(aes(ymin=estimate-SE*1.96, ymax=estimate+SE*1.96), width=0) + facet_grid(biomass~1,  scales= "free_y") + theme_Publication() + ylab("Estimated marginal means")
+ggplot(outall %>% filter(comparison %in% c("ABG", "BWG","bromeBio")), aes(x=treatment, y=estimate)) + geom_point(size=3)  + geom_errorbar(aes(ymin=estimate-SE*1.96, ymax=estimate+SE*1.96), width=0) + facet_grid(biomass~.,  scales= "free_y") + theme_Publication() + ylab("Estimated marginal means")+ geom_hline(yintercept = 0, lwd=1, lty=2, color="#00000070")
+
 
 
 ### plot densities of brome
@@ -171,6 +174,7 @@ car::Anova(m1, type="2")
 emmeans(m1, specs = trt.vs.ctrlk ~treat, var="survival")
 out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")$contrast)
 
+m1 <- glm(ephedra.begin ~ Density, data=recruit, family="binomial")
 
 predEmerge <- predict(m1, newdata=data.frame(Density = 0:20), type="response", se.fit=T)
 predData <- data.frame(Density = 0:20, fit=predEmerge$fit, error=predEmerge$se.fit)
@@ -184,6 +188,11 @@ ggplot( recruit, aes(x=Density, y=survival)) +
     method.args = list(family = "binomial"), 
     se = FALSE) 
 
+
+ggplot() + geom_smooth( data = recruit, aes(x=Density, y= survival), method="glm", method.args = list(family = "binomial"), col="black", lwd=2) + geom_smooth( data = recruit, aes(x=Density, y= ephedra.begin), method="glm", method.args = list(family = "binomial"), col="black", lwd=2) + ylab(expression("Proportion of "*paste(italic("E. californica"))*" individuals")) + theme_Publication() + 
+  annotate("text", x = 15, y = 0.26, label = "survival", size=5) +
+  annotate("text", x = 15, y = 0.5, label = "emergence", size=5) + 
+  xlab(expression(paste(italic("B. madritensis "))*"density"))
 ```
 
 
