@@ -241,3 +241,39 @@ avgBrome <- bromeOther %>% group_by(year, microsite, plants) %>% summarize(dens=
 
 
 ggplot(avgBrome %>% filter(plants != "abd"), aes(x=microsite, y=dens, fill=microsite)) + geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +  ylab(expression(paste(italic("B. madritensis"))*"density (m"^2*")")) + theme_Publication() + geom_errorbar(aes(x=microsite, ymin=dens-error, ymax=dens+error), position=position_dodge(width=0.9), width=0) + xlab("") + scale_fill_brewer() + facet_grid(~year)
+```
+
+
+### Adjusted null hypothesis based on germ rate
+```{r warning=FALSE, message=FALSE}
+library(car)
+
+### Determine emergence and survival rate of Ephera pre-trial
+substrate <-read.csv("data/Ephedra.substrate.csv")
+
+## determine survival rate
+survRate <- substrate %>% filter(date == "2/25/2015") %>%  ## last survey instance
+   group_by(Micro, Sand) %>% summarize(propSurv = mean(survival))
+
+## determine emergence rate
+emergeRate <- substrate %>% group_by(Micro, Sand, Rep) %>% summarize(max.emerge = max(emergence, na.rm=T)) %>%  ## number of emerged individuals
+  mutate(emerge.occ = ifelse(max.emerge>0, 1, 0)) %>%  ## yes/no emergence
+  group_by(Micro, Sand) %>% summarize(prop.emerge = mean(emerge.occ))
+
+
+### Specify new Null
+
+## Compare Emergence
+m1 <- glm(ephedra.begin ~ Density * treat, data=recruit, family="binomial")
+car::Anova(m1, type="2")
+emmeans(m1, specs = trt.vs.ctrlk ~treat, var="survival")
+out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")$contrast)
+
+
+m1.lht <- lht(m1, c("(Intercept) = 0.68"))
+m1.lht
+
+
+```
+
+
