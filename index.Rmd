@@ -46,7 +46,7 @@ ihs <- function(x) {
     y <- log(x + sqrt(x ^ 2 + 1))
     return(y)
 }
-se <- function(x, ...) sqrt(var(na.omit(x))/length(na.omit(x)))
+se <- function(x, ...) sd(x, na.rm=T)/sqrt(length(na.omit(x)))
 source("functions.r")
 ```
 ### Ephedra characteristics at the landscape
@@ -106,16 +106,16 @@ library(emmeans)
 recruit$treat <- factor(recruit$treat, levels(recruit$treat)[c(1:2,7:3)]) ## reorder control to last treatment
 
 ## Compare Emergence
-m1 <- glm(ephedra.begin ~ Density* treat, data=recruit, family="binomial")
-car::Anova(m1, type="2")
+m1 <- glm(ephedra.begin ~ treat * brome.begin+ Density, data=recruit, family="binomial")
+car::Anova(m1, type="3")
 emmeans(m1, specs = trt.vs.ctrlk ~treat, var="survival")
 out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")$contrast)
 
 pR2 = 1 - m1$deviance / m1$null.deviance
 
 ## Compare Survival
-m2 <- glm(survival ~ Density* treat, data=recruit, family="binomial")
-car::Anova(m2, type="2")
+m2 <- glm(survival ~ brome.begin * treat + Density, data=recruit, family="binomial")
+car::Anova(m2, type="3")
 
 pR2 = 1 - m2$deviance / m2$null.deviance
 
@@ -123,13 +123,13 @@ emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")
 out2 <- data.frame(emmeans(m2, specs = trt.vs.ctrlk ~treat, var="survival")$contrast)
 
 ## Compare growth
-m3 <- lm(sqrt(Ephedra.above) ~ Density * treat, data= subset(recruit, Ephedra.above >0))
-car::Anova(m3, type="2")
+m3 <- lm(sqrt(Ephedra.above) ~ Density + treat * brome.begin, data= subset(recruit, Ephedra.above >0))
+car::Anova(m3, type="3")
 out3 <- data.frame(emmeans(m3, specs = trt.vs.ctrlk ~treat, var="Ephedra.above")$contrast)
 
 
-m4 <- lm(sqrt(Ephedra.below) ~ Density * treat, data= subset(recruit, Ephedra.below >0))
-car::Anova(m4, type="2")
+m4 <- lm(sqrt(Ephedra.below) ~ Density + treat*brome.begin, data= subset(recruit, Ephedra.below >0))
+car::Anova(m4, type="3")
 out4 <- data.frame(emmeans(m4, specs = trt.vs.ctrlk ~treat, var="Ephedra.below")$contrast)
 
 ## effect of treatment on brome
@@ -159,7 +159,12 @@ ggplot(outall %>% filter(comparison %in% c("ABG", "BWG","bromeBio")), aes(x=trea
 
 
 
-### plot densities of brome
+#### plot densities of brome
+
+## calculate means for points on figure
+avgRates <- recruit %>% group_by(Density) %>% summarize(emerge=mean(ephedra.begin), emerge.se=se(ephedra.begin), surv=mean(survival), surv.se=se(survival))
+
+
 m1 <- glm(ephedra.begin ~ Density* treat, data=recruit, family="binomial")
 car::Anova(m1, type="2")
 emmeans(m1, specs = trt.vs.ctrlk ~treat, var="survival")
@@ -167,12 +172,36 @@ out1 <- data.frame(emmeans(m1, specs = trt.vs.ctrlk ~treat, var="ephedra.begin")
 
 m1 <- glm(ephedra.begin ~ Density, data=recruit, family="binomial")
 
-ggplot() + geom_smooth( data = recruit, aes(x=Density, y= survival), method="glm", method.args = list(family = "binomial"), col="black", lwd=2) + geom_smooth( data = recruit, aes(x=Density, y= ephedra.begin), method="glm", method.args = list(family = "binomial"), col="black", lwd=2) + ylab(expression("Proportion of "*paste(italic("E. californica"))*" individuals")) + theme_Publication() + 
+ggplot() + geom_smooth( data = recruit, aes(x=Density, y= survival), method="glm", method.args = list(family = "binomial"), col="black", lwd=2, fullrange=T) + geom_smooth( data = recruit, aes(x=Density, y= ephedra.begin), method="glm", method.args = list(family = "binomial"), col="black", lwd=2, fullrange=T) + ylab(expression("Proportion of "*paste(italic("E. californica"))*" individuals")) + theme_Publication() + 
   annotate("text", x = 15, y = 0.26, label = "survival probability", size=5) +
   annotate("text", x = 15, y = 0.5, label = "emergence probability", size=5) + 
-  xlab(expression(paste(italic("B. madritensis "))*"density"))
+  xlab(expression(paste(italic("B. madritensis "))*"density")) + xlim(-1,21) +
+  geom_point(data=avgRates, aes(x=Density, y=emerge), size=2) + geom_errorbar(data=avgRates, aes(x=Density, ymin=emerge-emerge.se, ymax=emerge+emerge.se), width=0)+
+  geom_point(data=avgRates, aes(x=Density, y=surv), size=2) + geom_errorbar(data=avgRates, aes(x=Density, ymin=surv-surv.se, ymax=surv+surv.se), width=0)
 ```
 
+### Patterns of Brome Emergence
+```{r}
+## Relationship of seeds to emerged individuals
+plot1 <- ggplot(recruit %>% filter(Density != 0), aes(x=Density, y= brome.begin)) + geom_jitter(height=0.5, width=0.5) + xlim(1,21) + ylim(0,20) + geom_smooth(method="glm", method.args = list(family = "quasipoisson"), fullrange=T, color="#56B4E9") + theme_Publication() + xlab(expression("Number of "*paste(italic("B. madritensis"))*" seeds")) + ylab("Number of emerged individuals")
+
+plot2 <- ggplot(recruit %>% filter(Density != 0), aes(as.factor(Density), y=brome.prop.begin))  + geom_boxplot(fill="#56B4E9") + theme_Publication() + xlab(expression("Number of "*paste(italic("B. madritensis"))*" seeds")) + ylab(expression("Proportion of emerged"*paste(italic("B. madritensis"))*" individuals")) + facet_grid(~treat)
+
+gridExtra::grid.arrange(plot1, plot2, ncol=2)
+
+## Relationship of seeds to biomass
+ggplot(recruit %>% filter(Density != 0), aes(x=Density, y= log(brome.biomass))) + geom_jitter(height=0.5, width=0.5) + xlim(1,21)  + geom_smooth(method="glm", method.args = list(family = "quasipoisson"), fullrange=T) + theme_Publication() + xlab(expression("Number of "*paste(italic("B. madritensis"))*" seeds")) + ylab("Number of emerged individuals")
+
+m1 <- glm(brome.begin ~ Density * treat, data=subset(recruit, Density !=0) , family="quasipoisson")
+anova(m1, test="Chisq")
+
+## Average  emergence among treatments
+emergePatterns <- recruit %>% group_by(treat) %>% summarize(propEmerge = mean(ephedra.begin),Emerge.se = se(ephedra.begin), propSurv = mean(survival), Surv.se=se(survival), bromeEmerge=mean(brome.prop.begin/100), brome.se=se(brome.prop.begin/100))
+write.csv(emergePatterns, "emergePatterns.csv", row.names=F)
+
+## Average emergence across everything
+recruit %>% summarize(propEmerge = mean(ephedra.begin),Emerge.se = se(emergence), propSurv = mean(survival), Surv.se=se(survival), bromeEmerge=mean(brome.prop.begin/100), brome.se=se(brome.prop.begin/100))
+```
 
 ### Shrub-plant facilitation results
 ```{r warning = FALSE, message=FALSE}
