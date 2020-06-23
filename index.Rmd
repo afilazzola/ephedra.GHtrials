@@ -49,8 +49,8 @@ ihs <- function(x) {
 se <- function(x, ...) sd(x, na.rm=T)/sqrt(length(na.omit(x)))
 source("functions.r")
 ```
-### Ephedra characteristics at the landscape
 
+### Ephedra characteristics at the landscape
 ```{r}
 avg.size <- landscape %>% summarize(h=mean(H), d1=mean(D1), area=mean(Area), density=mean(Shrub.density), rdm=mean(RDM.2013),h.se=se(H), d1.se=se(D1), area.se=se(Area), density.se=se(Shrub.density), rdm.se=se(RDM.2013))
 avg.size
@@ -183,9 +183,9 @@ ggplot() + geom_smooth( data = recruit, aes(x=Density, y= survival), method="glm
 ### Patterns of Brome Emergence
 ```{r}
 ## Relationship of seeds to emerged individuals
-plot1 <- ggplot(recruit %>% filter(Density != 0), aes(x=Density, y= brome.begin)) + geom_jitter(height=0.5, width=0.5) + xlim(1,21) + ylim(0,20) + geom_smooth(method="glm", method.args = list(family = "quasipoisson"), fullrange=T, color="#56B4E9") + theme_Publication() + xlab(expression("Number of "*paste(italic("B. madritensis"))*" seeds")) + ylab("Number of emerged individuals")
+plot1 <- ggplot(recruit %>% filter(Density != 0), aes(x=Density, y= brome.begin)) + geom_jitter(height=0, width=0.5) + xlim(1,21) + ylim(0,20) + geom_smooth(method="glm", method.args = list(family = "quasipoisson"), fullrange=T, color="Grey50") + theme_Publication() + xlab(expression("Number of "*paste(italic("B. madritensis"))*" seeds")) + ylab("Number of emerged individuals")
 
-plot2 <- ggplot(recruit %>% filter(Density != 0), aes(as.factor(Density), y=brome.prop.begin))  + geom_boxplot(fill="#56B4E9") + theme_Publication() + xlab(expression("Number of "*paste(italic("B. madritensis"))*" seeds")) + ylab(expression("Proportion of emerged"*paste(italic("B. madritensis"))*" individuals")) + facet_grid(~treat)
+plot2 <- ggplot(recruit %>% filter(Density != 0), aes(as.factor(Density), y=brome.prop.begin))  + geom_boxplot(fill="Grey70") + theme_Publication() + xlab(expression("Number of "*paste(italic("B. madritensis"))*" seeds")) + ylab(expression("Proportion of emerged"*paste(italic("B. madritensis"))*" individuals")) 
 
 gridExtra::grid.arrange(plot1, plot2, ncol=2)
 
